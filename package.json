@@ -1,0 +1,124 @@
+{
+  "name": "auto-commit-extension",
+  "displayName": "Auto Commit",
+  "description": "Automatically commit your code changes every 10 minutes",
+  "version": "1.0.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "autoCommit.start",
+        "title": "Start Auto Commit",
+        "category": "Auto Commit"
+      },
+      {
+        "command": "autoCommit.stop",
+        "title": "Stop Auto Commit",
+        "category": "Auto Commit"
+      },
+      {
+        "command": "autoCommit.commitNow",
+        "title": "Commit Now",
+        "category": "Auto Commit"
+      },
+      {
+        "command": "autoCommit.showStatus",
+        "title": "Show Auto Commit Status",
+        "category": "Auto Commit"
+      }
+    ],
+    "configuration": {
+      "title": "Auto Commit",
+      "properties": {
+        "autoCommit.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable auto commit functionality"
+        },
+        "autoCommit.interval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Auto commit interval in minutes"
+        },
+        "autoCommit.commitMessage": {
+          "type": "string",
+          "default": "Auto-commit: {timestamp}",
+          "description": "Commit message template. Use {timestamp} for current time, {files} for file count"
+        },
+        "autoCommit.includeUntracked": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include untracked files in auto commits"
+        },
+        "autoCommit.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules/**",
+            ".git/**",
+            "*.log",
+            ".env*"
+          ],
+          "description": "File patterns to exclude from auto commits"
+        },
+        "autoCommit.pushAfterCommit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically push to remote after each commit"
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "autoCommit.start",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "autoCommit.stop",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "autoCommit.commitNow",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "autoCommit.showStatus",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^16.18.126",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/vscode": "^1.102.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "lucide-react": "^0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "simple-git": "^3.28.0"
+  }
+}
