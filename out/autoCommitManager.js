@@ -80,18 +80,18 @@ class AutoCommitManager {
             return { success: false, error: 'Git not initialized' };
         }
         try {
-            // Check if there are any changes
+            // Check for changes
             const status = await this.git.status();
             const hasChanges = status.files.length > 0;
             if (!hasChanges) {
                 return { success: true, message: 'No changes to commit' };
             }
-            // Get configuration
+            // Configs
             const config = vscode.workspace.getConfiguration('autoCommit');
             const includeUntracked = config.get('includeUntracked', true);
             const excludePatterns = config.get('excludePatterns', []);
             const messageTemplate = config.get('commitMessage', 'Auto-commit: {timestamp}');
-            // Filter files based on exclude patterns
+            // Filter files to commit
             const filesToCommit = status.files.filter(file => {
                 return !excludePatterns.some(pattern => {
                     const regex = new RegExp(pattern.replace(/\*/g, '.*'));
@@ -101,24 +101,31 @@ class AutoCommitManager {
             if (filesToCommit.length === 0) {
                 return { success: true, message: 'No files to commit after filtering' };
             }
-            // Add files to staging
+            // Stage files
             for (const file of filesToCommit) {
                 if (file.index === '?' && !includeUntracked) {
-                    continue; // Skip untracked files if not included
+                    continue; // skip untracked if not included
                 }
                 await this.git.add(file.path);
             }
-            // Create commit message
+            // If untracked files are included but no files staged yet, add all
+            if (includeUntracked && filesToCommit.some(f => f.index === '?')) {
+                await this.git.add('.');
+            }
+            // Commit message with timestamp
             const timestamp = new Date().toLocaleString();
             const commitMessage = messageTemplate
                 .replace('{timestamp}', timestamp)
                 .replace('{files}', filesToCommit.length.toString());
-            // Commit changes
+            // Commit
             const commitResult = await this.git.commit(commitMessage);
+            console.log(`✅ Committed ${filesToCommit.length} files`, commitResult);
+            // Push if enabled
             const pushAfterCommit = config.get('pushAfterCommit', false);
             if (pushAfterCommit) {
                 console.log('🔄 pushAfterCommit is enabled');
                 try {
+                    // Fetch remotes and current branch
                     const remotes = await this.git.getRemotes(true);
                     console.log('📡 Available remotes:', remotes);
                     if (!remotes.length) {
@@ -127,23 +134,24 @@ class AutoCommitManager {
                             error: 'No Git remote found. Add a remote to enable push.'
                         };
                     }
-                    const branch = 'main'; // Change if needed
-                    console.log(`🚀 Pushing to origin/${branch}...`);
-                    await this.git.push('origin', branch);
+                    const branchSummary = await this.git.branchLocal();
+                    const currentBranch = branchSummary.current || 'main';
+                    console.log(`🚀 Current branch detected: ${currentBranch}`);
+                    await this.git.fetch();
+                    // Push to origin/currentBranch
+                    await this.git.push('origin', currentBranch);
                     console.log('✅ Git push successful');
                     vscode.window.showInformationMessage('Auto-commit and push complete.');
                 }
                 catch (pushError) {
                     console.error('❌ Git push failed:', pushError);
-                    vscode.window.showErrorMessage(`Push failed: ${pushError}`);
+                    vscode.window.showErrorMessage(`Push failed: ${pushError instanceof Error ? pushError.message : String(pushError)}`);
                     return {
                         success: false,
                         error: pushError instanceof Error ? pushError.message : String(pushError)
                     };
                 }
             }
-            console.log(`✅ Committed ${filesToCommit.length} file(s):`, commitResult);
-            // Update webview if open
             this.updateWebview();
             return {
                 success: true,

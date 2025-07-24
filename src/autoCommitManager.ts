@@ -149,7 +149,6 @@ export class AutoCommitManager {
                 const currentBranch = branchSummary.current || 'main';
                 console.log(`🚀 Current branch detected: ${currentBranch}`);
 
-                // Optional: fetch before push to avoid non-fast-forward errors
                 await this.git.fetch();
 
                 // Push to origin/currentBranch
