@@ -37,7 +37,7 @@ export class AutoCommitManager {
         this.stop(); // Stop any existing timer
 
         const config = vscode.workspace.getConfiguration('autoCommit');
-        const interval = config.get<number>('interval', 10) * 60 * 1000; // Convert to milliseconds
+        const interval = config.get<number>('interval', 1) * 60 * 1000; // Convert to milliseconds
 
         this.scheduleNextCommit(interval);
     }
@@ -123,20 +123,30 @@ export class AutoCommitManager {
 
             // Commit changes
             const commitResult = await this.git.commit(commitMessage);
-
-            // Push to remote if enabled in config
             const pushAfterCommit = config.get<boolean>('pushAfterCommit', false);
             if (pushAfterCommit) {
                 try {
+                    const remotes = await this.git.getRemotes(true);
+                    if (!remotes.length) {
+                        return {
+                            success: false,
+                            error: 'No Git remote found. Please add a remote before pushing.'
+                        };
+                    }
+
                     await this.git.push();
+                    console.log('✅ Push to remote successful');
+                    vscode.window.showInformationMessage('Push to remote successful.');
                 } catch (pushError) {
-                    console.error('Push failed:', pushError);
+                    console.error('❌ Git push failed:', pushError);
+                    vscode.window.showErrorMessage('Git push failed. Check console for details.');
                     return {
                         success: false,
-                        error: `Push failed: ${pushError instanceof Error ? pushError.message : pushError}`
+                        error: pushError instanceof Error ? pushError.message : String(pushError)
                     };
                 }
             }
+
 
 
             // Update webview if open
