@@ -123,29 +123,35 @@ export class AutoCommitManager {
 
             // Commit changes
             const commitResult = await this.git.commit(commitMessage);
-            const pushAfterCommit = config.get<boolean>('pushAfterCommit', false);
+           const pushAfterCommit = config.get<boolean>('pushAfterCommit', false);
             if (pushAfterCommit) {
+                console.log('🔄 pushAfterCommit is enabled');
                 try {
                     const remotes = await this.git.getRemotes(true);
+                    console.log('📡 Available remotes:', remotes);
+
                     if (!remotes.length) {
                         return {
                             success: false,
-                            error: 'No Git remote found. Please add a remote before pushing.'
+                            error: 'No Git remote found. Add a remote to enable push.'
                         };
                     }
 
-                    await this.git.push();
-                    console.log('✅ Push to remote successful');
-                    vscode.window.showInformationMessage('Push to remote successful.');
+                    const branch = 'main'; // Change if needed
+                    console.log(`🚀 Pushing to origin/${branch}...`);
+                    await this.git.push('origin', branch);
+                    console.log('✅ Git push successful');
+                    vscode.window.showInformationMessage('Auto-commit and push complete.');
                 } catch (pushError) {
                     console.error('❌ Git push failed:', pushError);
-                    vscode.window.showErrorMessage('Git push failed. Check console for details.');
+                    vscode.window.showErrorMessage(`Push failed: ${pushError}`);
                     return {
                         success: false,
                         error: pushError instanceof Error ? pushError.message : String(pushError)
                     };
                 }
             }
+                        console.log(`✅ Committed ${filesToCommit.length} file(s):`, commitResult);
 
 
 

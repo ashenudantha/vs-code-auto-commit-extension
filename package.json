@@ -1,9 +1,9 @@
 {
   "name": "auto-commit-extension",
   "displayName": "Auto Commit",
-  "description": "Automatically commit your code changes every 10 minutes",
+  "description": "Automatically commit your code changes every 1 minutes",
   "version": "1.0.0",
-  "publisher": "ashenudantha",
+  "publisher": "ashen",
   "engines": {
     "vscode": "^1.102.0"
   },
