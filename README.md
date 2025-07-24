@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Auto Commit VS Code Extension
 
 Automatically commit your code changes to Git every 10 minutes (configurable).
@@ -72,3 +73,7 @@ npm run watch
 ## License
 
 MIT License - feel free to modify and distribute.
+=======
+# vs-code-auto-commit-extension
+A lightweight Visual Studio Code extension that automatically stages, commits, and optionally pushes your code changes at regular intervals — so you can focus on writing code without worrying about version control distractions.
+>>>>>>> 8604676d0458fb964674e2e668a83ec0922e32ab
