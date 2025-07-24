@@ -76,99 +76,110 @@ export class AutoCommitManager {
     }
 
     private async performAutoCommit(): Promise<CommitResult> {
-        if (!this.git || !this.workspaceRoot) {
-            return { success: false, error: 'Git not initialized' };
+    if (!this.git || !this.workspaceRoot) {
+        return { success: false, error: 'Git not initialized' };
+    }
+
+    try {
+        // Check for changes
+        const status: StatusResult = await this.git.status();
+        const hasChanges = status.files.length > 0;
+
+        if (!hasChanges) {
+            return { success: true, message: 'No changes to commit' };
         }
 
-        try {
-            // Check if there are any changes
-            const status: StatusResult = await this.git.status();
-            const hasChanges = status.files.length > 0;
+        // Configs
+        const config = vscode.workspace.getConfiguration('autoCommit');
+        const includeUntracked = config.get<boolean>('includeUntracked', true);
+        const excludePatterns = config.get<string[]>('excludePatterns', []);
+        const messageTemplate = config.get<string>('commitMessage', 'Auto-commit: {timestamp}');
 
-            if (!hasChanges) {
-                return { success: true, message: 'No changes to commit' };
-            }
-
-            // Get configuration
-            const config = vscode.workspace.getConfiguration('autoCommit');
-            const includeUntracked = config.get<boolean>('includeUntracked', true);
-            const excludePatterns = config.get<string[]>('excludePatterns', []);
-            const messageTemplate = config.get<string>('commitMessage', 'Auto-commit: {timestamp}');
-
-            // Filter files based on exclude patterns
-            const filesToCommit = status.files.filter(file => {
-                return !excludePatterns.some(pattern => {
-                    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-                    return regex.test(file.path);
-                });
+        // Filter files to commit
+        const filesToCommit = status.files.filter(file => {
+            return !excludePatterns.some(pattern => {
+                const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+                return regex.test(file.path);
             });
+        });
 
-            if (filesToCommit.length === 0) {
-                return { success: true, message: 'No files to commit after filtering' };
+        if (filesToCommit.length === 0) {
+            return { success: true, message: 'No files to commit after filtering' };
+        }
+
+        // Stage files
+        for (const file of filesToCommit) {
+            if (file.index === '?' && !includeUntracked) {
+                continue; // skip untracked if not included
             }
+            await this.git.add(file.path);
+        }
 
-            // Add files to staging
-            for (const file of filesToCommit) {
-                if (file.index === '?' && !includeUntracked) {
-                    continue; // Skip untracked files if not included
-                }
-                await this.git.add(file.path);
-            }
+        // If untracked files are included but no files staged yet, add all
+        if (includeUntracked && filesToCommit.some(f => f.index === '?')) {
+            await this.git.add('.');
+        }
 
-            // Create commit message
-            const timestamp = new Date().toLocaleString();
-            const commitMessage = messageTemplate
-                .replace('{timestamp}', timestamp)
-                .replace('{files}', filesToCommit.length.toString());
+        // Commit message with timestamp
+        const timestamp = new Date().toLocaleString();
+        const commitMessage = messageTemplate
+            .replace('{timestamp}', timestamp)
+            .replace('{files}', filesToCommit.length.toString());
 
-            // Commit changes
-            const commitResult = await this.git.commit(commitMessage);
-           const pushAfterCommit = config.get<boolean>('pushAfterCommit', false);
-            if (pushAfterCommit) {
-                console.log('🔄 pushAfterCommit is enabled');
-                try {
-                    const remotes = await this.git.getRemotes(true);
-                    console.log('📡 Available remotes:', remotes);
+        // Commit
+        const commitResult = await this.git.commit(commitMessage);
+        console.log(`✅ Committed ${filesToCommit.length} files`, commitResult);
 
-                    if (!remotes.length) {
-                        return {
-                            success: false,
-                            error: 'No Git remote found. Add a remote to enable push.'
-                        };
-                    }
-
-                    const branch = 'main'; // Change if needed
-                    console.log(`🚀 Pushing to origin/${branch}...`);
-                    await this.git.push('origin', branch);
-                    console.log('✅ Git push successful');
-                    vscode.window.showInformationMessage('Auto-commit and push complete.');
-                } catch (pushError) {
-                    console.error('❌ Git push failed:', pushError);
-                    vscode.window.showErrorMessage(`Push failed: ${pushError}`);
+        // Push if enabled
+        const pushAfterCommit = config.get<boolean>('pushAfterCommit', false);
+        if (pushAfterCommit) {
+            console.log('🔄 pushAfterCommit is enabled');
+            try {
+                // Fetch remotes and current branch
+                const remotes = await this.git.getRemotes(true);
+                console.log('📡 Available remotes:', remotes);
+                if (!remotes.length) {
                     return {
                         success: false,
-                        error: pushError instanceof Error ? pushError.message : String(pushError)
+                        error: 'No Git remote found. Add a remote to enable push.'
                     };
                 }
+
+                const branchSummary = await this.git.branchLocal();
+                const currentBranch = branchSummary.current || 'main';
+                console.log(`🚀 Current branch detected: ${currentBranch}`);
+
+                // Optional: fetch before push to avoid non-fast-forward errors
+                await this.git.fetch();
+
+                // Push to origin/currentBranch
+                await this.git.push('origin', currentBranch);
+                console.log('✅ Git push successful');
+                vscode.window.showInformationMessage('Auto-commit and push complete.');
+            } catch (pushError) {
+                console.error('❌ Git push failed:', pushError);
+                vscode.window.showErrorMessage(`Push failed: ${pushError instanceof Error ? pushError.message : String(pushError)}`);
+                return {
+                    success: false,
+                    error: pushError instanceof Error ? pushError.message : String(pushError)
+                };
             }
-                        console.log(`✅ Committed ${filesToCommit.length} file(s):`, commitResult);
-
-
-
-            // Update webview if open
-            this.updateWebview();
-
-            return {
-                success: true,
-                message: `Committed ${filesToCommit.length} file(s)`,
-                filesChanged: filesToCommit.length
-            };
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            return { success: false, error: errorMessage };
         }
+
+        this.updateWebview();
+
+        return {
+            success: true,
+            message: `Committed ${filesToCommit.length} file(s)`,
+            filesChanged: filesToCommit.length
+        };
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return { success: false, error: errorMessage };
     }
+}
+
 
     public updateConfiguration(): void {
         if (this.isActive()) {
