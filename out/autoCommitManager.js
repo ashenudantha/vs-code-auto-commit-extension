@@ -80,7 +80,6 @@ class AutoCommitManager {
             return { success: false, error: 'Git not initialized' };
         }
         try {
-            // Check for changes
             const status = await this.git.status();
             const hasChanges = status.files.length > 0;
             if (!hasChanges) {

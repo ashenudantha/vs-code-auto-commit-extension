@@ -81,7 +81,6 @@ export class AutoCommitManager {
     }
 
     try {
-        // Check for changes
         const status: StatusResult = await this.git.status();
         const hasChanges = status.files.length > 0;
 
