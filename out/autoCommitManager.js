@@ -86,7 +86,6 @@ class AutoCommitManager {
             if (!hasChanges) {
                 return { success: true, message: 'No changes to commit' };
             }
-            // Configs
             const config = vscode.workspace.getConfiguration('autoCommit');
             const includeUntracked = config.get('includeUntracked', true);
             const excludePatterns = config.get('excludePatterns', []);
